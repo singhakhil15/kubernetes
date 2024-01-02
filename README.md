@@ -1,10 +1,86 @@
 [TOC]
 
+# Components
 
 
-### Pod
 
-##### PodDefinition
+## API Server
+
+Act as user interface. All tools use it for communation to k8s. 
+
+
+
+## Etcd
+
+Used to store key-value pairs. It is distributed reliable storage used by k8s to store all data for managing the cluster.
+
+
+
+## Scheduler
+
+It is responsible for distributing work or containers across multiple nodes. It looks for newly created containers and assigns them to nodes.
+
+
+
+## Controller
+
+They are responsible for noticing and reponding when nodes, container or endpoint goes down. The controllers make decision to bring up new container.
+
+
+
+## Kubelet
+
+it is a agent running on each node in the cluster. It is reponsible to make sure containers running on nodes as excepted.
+
+
+
+## Container Runtime
+
+It is underlying software that is used to run containers(CRI-O, Docker etc).
+
+
+
+| Master Node |    Worker Node    |
+| :---------: | :---------------: |
+| API Server  |      Kubelet      |
+|    Etcd     | Container Runtime |
+| Controller  |                   |
+|  Scheduler  |                   |
+
+
+
+# Minikube
+
+```sh
+brew install minikube
+minikube start
+
+brew install kubectl
+kubectl version --clinet --output=yaml
+kubectl cluster-info
+kubectl config view
+
+# Changing default context 
+kubectl config use-context minikube
+
+minikube dashboard
+kubectl proxy
+kubectl proxy --port=8001
+
+
+```
+
+
+
+# Pod
+
+Containers are enscuplitated in k8s object known as Pod. It is a single instance of an application. It is a smallest object in k8s.
+
+We can have `multiple container` on small pod of different type. Both containers can directly communicate with each other reffering `localhost` 
+
+
+
+## PodDefinition
 
 ```yaml
 apiVersion: v1
@@ -22,7 +98,7 @@ spec:
 
 
 
-##### Commands
+## Commands
 
 ```sh
 # run help 
@@ -42,6 +118,9 @@ kubectl run nginx --image=nginx
 
 # to get node details for pods
 kubectl get pods -o wide
+
+# get all pod
+kubectl get pod -A
 
 # delete pod
 kubectl delete pod <pod-name>
@@ -73,13 +152,11 @@ kubectl get pod <pod-name> -o yaml > pod-definition.yaml
   - spec.tolerations
   - spec.terminationGracePeriodSeconds
 
-
-
-### Controllers
+# Controllers
 
 They are brain which monitor kubernet's object and response accordenly.
 
-##### Replication Controller
+## Replication Controller
 
 To achive high availability we need replication of pod. Replication Controller is older technology replaced by Replica Set.
 
@@ -108,7 +185,7 @@ spec:
 	replicas: 3
 ```
 
-##### Commands
+### Commands
 
 ```bash
 # get replication controll
@@ -118,9 +195,7 @@ kubectl get replicationcontroller
 
 Get pod command will retrun all pod created. The name of pod will start with replication controller name if it created trough replication.
 
-
-
-##### ReplicaSet Controller
+## ReplicaSet Controller
 
 ```yaml
 apiVersion: apps/v1
@@ -159,9 +234,7 @@ selector:
 		tier: front-end
 ```
 
-
-
-##### Scale 
+### Scale 
 
 1. We can scale Replicaset by updating definition file `replicas: 6` and replace the replicaset with following command.
 
@@ -170,7 +243,7 @@ selector:
 2. `kubectl scale --replicas=6 replicaset-def.yaml` by using scale command with replicaset definition file. Scaling replicasetset by providing file as input will not update file replicaset definition file.
 3. `kubectl scale --replicas=6 replicaset myapp-rc` by using replicaset name.
 
-##### Commands
+### Commands
 
 ```bash
 kubectl get replicaset
@@ -188,13 +261,11 @@ kubectl explain replicaset
 kubectl edit replicaset <replicaset-name>
 ```
 
-
-
-### Deployments
+# Deployments
 
 Deployment will automatically create replicaset. 
 
-##### Definition file
+## Definition file
 
 ```yaml
 apiVersion: apps/v1
@@ -222,9 +293,7 @@ spec:
 			type: front-end
 ```
 
-
-
-##### Commands
+## Commands
 
 ```bash
 kubectl get deployments
@@ -232,13 +301,11 @@ kubectl get deployments
 kubectl create deployment <deployment-name> --image=<image-name> --replicas=<replica-desire-number>
 ```
 
-
-
-### Namespaces
+# Namespaces
 
 Namespace is a machanism that enable us to organize resources. It is like a virtual cluster inside a cluster.
 
-##### Initial Namespaces
+## Initial Namespaces
 
 - ***kube-system:*** System processes like Master and kubectl processes are deployed in this namespace; thus, it is advised not to create or modify the namespace.
 
@@ -250,7 +317,7 @@ Namespace is a machanism that enable us to organize resources. It is like a virt
 
   
 
-##### Connection between Namespaces
+## Connection between Namespaces
 
 Resources within same namespace will refer eachother with their names. For example, we have pods name as `web-app` , `db-service` and `web-deployment`
 
@@ -266,7 +333,7 @@ mysql.connect("db-service.dev.svc.cluster.local")
 <application-name>.<namespace-name>.<service>.<domain>
 ```
 
-##### Commands
+## Commands
 
 ```sh
 # get pods in given namespace
@@ -285,9 +352,7 @@ kubectl config set-context $(kubectl config current-context) --namespace=dev
 kubectl get pods --all-namespaces
 ```
 
-
-
-##### Definition File
+## Definition File
 
 Add namespace definition into pod definition file under `metadata` section.
 
@@ -308,9 +373,7 @@ spec:
 		  image: nginx
 ```
 
-
-
-##### Creating new Nmaespace
+## Creating new Nmaespace
 
 ```yaml
 apiVersion: v1
@@ -319,9 +382,7 @@ metadata:
 	name: dev
 ```
 
-
-
-##### Resource Quota
+## Resource Quota
 
 To limit resources in a namespace create Resource Quota.
 
@@ -340,9 +401,82 @@ spec:
 		limits.memory: 10Gi
 ```
 
+# Services
 
+Services are used to manage communication between applications or outside the k8s. Service is like a virtual server inside a node. It has its own IP address and that IP address is called `cluster ip of the service `.
+If application is distributed across multiple node, service will use same port for all the nodes and we can access application using any of node ip's address along with port number.
 
-### Imperative Commands
+Services Type as follows
+
+## NodePort  
+
+Enables internal port on a Node accessable. Mapping Port on a Node to Port on a Pod.
+
+**`targetPort`** Port on Pod. If not provided, it will be considered port of service.
+**`port`** Port on Service. It is `Mandatory`
+**`NodePort`** Port on Node. It range from `30000` to `32767`. If not provided, it will take random port.
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+	name: app-service
+spec:
+	type: NodePort
+	ports:
+		- targetPort: 80
+			port: 80
+			nodePort: 30008
+## Pod definition to link with Service
+		selector:
+   		app: myapp
+      type: front-end
+      
+```
+
+# ClusterIP
+
+Service create a virtual IP inside a cluster to establish communication between a set of services like font-end and back-end. 
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+	name: app-service
+spec:
+	type: ClusterIP
+	ports:
+		- targetPort: 80
+			port: 80
+## Pod definition to link with Service
+		selector:
+   		app: myapp
+      type: front-end
+```
+
+## LoadBalancer
+
+It provision a loadblancer in supported cloud provider. To distribute load between Pods.
+When we create a service for a application, the application will be accessible from all the nodes ip address with port. Eventhough application is deployed 2 node out of 4. It can be accessible from all the nodes by using ip address. 
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+	name: app-service
+spec:
+	type: LoadBalancer
+	ports:
+		- targetPort: 80
+			port: 80
+			nodePort: 30008
+## Pod definition to link with Service
+		selector:
+   		app: myapp
+      type: front-end
+```
+
+# Imperative Commands
 
 `--dry-run`: By default, as soon as the command is run, the resource will be created. If you simply want to test your command, use the `--dry-run=client` option. This will not create the resource. Instead, tell you whether the resource can be created and if your command is right.
 
@@ -352,59 +486,7 @@ spec:
 kubectl run nginx --image=nginx --dry-run=client -o yaml > nginx-pod.yaml
 ```
 
-##### POD
-
-**Create an NGINX Pod**
-
-```
-kubectl run nginx --image=nginx
-```
-
-
-
-**Generate POD Manifest YAML file (-o yaml). Don't create it(--dry-run)**
-
-```
-kubectl run nginx --image=nginx --dry-run=client -o yaml
-```
-
-
-
-##### Deployment
-
-**Create a deployment**
-
-```
-kubectl create deployment --image=nginx nginx
-```
-
-
-
-**Generate Deployment YAML file (-o yaml). Don't create it(--dry-run)**
-
-```
-kubectl create deployment --image=nginx nginx --dry-run -o yaml
-```
-
-
-
-**Generate Deployment with 4 Replicas**
-
-```
-kubectl create deployment nginx --image=nginx --replicas=4
-```
-
-
-
-You can also scale deployment using the `kubectl scale` command.
-
-```
-kubectl scale deployment nginx --replicas=4
-```
-
-
-
-##### POD
+## POD
 
 **Create an NGINX Pod**
 
@@ -420,9 +502,7 @@ kubectl run nginx --image=nginx
 kubectl run nginx --image=nginx --dry-run=client -o yaml
 ```
 
-
-
-##### Deployment
+## Deployment
 
 **Create a deployment**
 
@@ -460,9 +540,7 @@ kubectl scale deployment nginx --replicas=4
 kubectl create deployment nginx --image=nginx --dry-run=client -o yaml > nginx-deployment.yaml
 ```
 
-
-
-##### Service
+## Service
 
 **Create a Service named redis-service of type ClusterIP to expose pod redis on port 6379**
 
@@ -492,9 +570,7 @@ Or
 kubectl create service nodeport nginx --tcp=80:80 --node-port=30080 --dry-run=client -o yaml
 ```
 
-
-
-##### Commands
+### Commands
 
 ```shell
 kubectl run --help
@@ -525,9 +601,7 @@ kubectl create deployment redis-deploy --image=redis --replicas=2 -n dev-ns
 kubectl run http --image=httpd:alpine --port=80 --expose=true
 ```
 
-
-
-### CMD And Entrypoint 
+# CMD And Entrypoint 
 
 ```dockerfile
 FROM Ubuntu
@@ -568,13 +642,10 @@ docker run ubuntu-sleeper
 docker run --entrypoint sleep2.0 ubuntu-sleeper 10
 ```
 
+# Commands and Arguments in Kubernetes
 
+## Dockerfile
 
-
-
-### Commands and Arguments in Kubernetes
-
-Dockerfile
 ```dockerfile
 FROM Ubuntu
 
@@ -585,7 +656,8 @@ CMD ["10"]
 
 
 
-Pod-Definition.yaml
+## Pod-Definition.yaml
+
 ```yaml
 apiVersion: v1
 kind: Pod
@@ -611,8 +683,6 @@ kubectl run webapp-green --image=kodekloud/webapp-color -- --color green
 
 kubectl run webapp-green --image=kodekloud/webapp-color --command -- python2.py --color green
 ```
-
-
 
 ### Edit a POD
 
@@ -668,9 +738,7 @@ With Deployments you can easily edit any field/property of the POD template. Sin
 kubectl edit deployment my-deployment
 ```
 
-
-
-### ENV Variables in Kubernetes
+# ENV Variables in Kubernetes
 
 ```sh
 docker run -e APP_COLOR=pink dimple-web-color
@@ -718,260 +786,287 @@ There 3 ways of setting ENV vars
    	  	secretKeyRef:
    ```
 
-
-
-### ConfigMaps
+## ConfigMaps
 
 ConfigMap are used to pass configuration data in key-value pairs in kubernets. When pod is created and injected ConfigMap to pod. The key value pairs will be available as environment variables for application inside the container in the pod. There are 2 steps involved in ConfigMap. 
 
-1. Create ConfigMap
-   a. Imperative
+### Create ConfigMap
 
-   ```sh
-   kubeconfig create configmap <config-map-name> \
-   --from-literal=APP_COLOR=blue \
-   --from-literal=APP_MOD=prod 
-   
-   
-   # creating from configmap file
-   kubectl create configmap <configmap-name> \
-   --from-file=<path-to-file>
-   
-   #
-   kubectl create configmap app-config \
-   --from-file=app_config.properties
-   
-   ```
+#### Imperative
 
-   Confimap file (app_config.properties)
-   ```yaml
-   APP_COLOR: blue
-   APP_MOD: prod 
-   ```
-
-   
-
-   b. Declarative 
-
-   ```yaml
-   apiVersion: v1
-   kind: ConfigMap
-   metadata: 
-   	name: app-config
-   data:
-   	APP_COLOR: red
-   	APP_MOD: blue
-   ```
-
-   
-
-2. Injecting ConfigMap
-   Pod-definition.yaml
-
-   ```yaml
-   apiVersion: v1
-   kind: Pod
-   metadata:
-   	name: myapp
-   	labels:
-   		tier: front-end
-   spec:
-   	containers:
-   		- name: my-app
-   			image: nginx
-   			port: 8080
-   		envFrom:
-   			- configMapRef:
-   					name: app-config
-   		
-   ```
-
-   Passing single key-value from configmap 
+```sh
+kubeconfig create configmap <config-map-name> \
+--from-literal=APP_COLOR=blue \
+--from-literal=APP_MOD=prod 
 
 
-   ```yaml
-   apiVersion: v1
-   kind: Pod
-   metadata:
-   	name: myapp
-   	labels:
-   		tier: front-end
-   spec:
-   	containers:
-   		- name: my-app
-   			image: nginx
-   			port: 8080
-   		env:
-   			- name: APP_COLOR
-   				valueFrom:
-   					configMapKeyRef:
-   						name: app-config
-   						key: APP_COLOR
-   ```
+# creating from configmap file
+kubectl create configmap <configmap-name> \
+--from-file=<path-to-file>
 
-   
+#
+kubectl create configmap app-config \
+--from-file=app_config.properties
 
-   ```yaml
-   apiVersion: v1
-   kind: Pod
-   metadata:
-   	name: myapp
-   	labels:
-   		tier: front-end
-   spec:
-   	containers:
-   		- name: my-app
-   			image: nginx
-   			port: 8080
-   		volumes:
-   			- name: app-config-volume
-   				configMap:
-   					name: app-config
-   ```
+```
 
-   
+Confimap file (app_config.properties)
+```yaml
+APP_COLOR: blue
+APP_MOD: prod 
+```
 
-### Secrets
 
-1. Create Secrets
 
-   1. Imperative
+#### Declarative 
 
-      ```sh
-      kubectl create secret generic \
-          <secret-name> --from-literal=<key>=<value>
-          
-      kubectl create secret generic \
-          app-secret --from-literal=BD_HOST=mysql \
-                     --from-literal=BD_PASS=admin 
-      
-      ## Using file to stor secrets
-      kubectl create secret genric \
-        <secret-name> --from-file=<path-to-file>
-      ```
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata: 
+	name: app-config
+data:
+	APP_COLOR: red
+	APP_MOD: blue
+```
 
-   2. Declaritive
 
-      ```yaml
-      apiVersion: v1
-      kind: Secret
-      metadata:
-      	name: app-secret
-      data:
-      	DB_HOST: mysql
-      	DB_PASSWORD: admin
-      	DB_USER: root
-      
-      ```
 
-      
+### Injecting ConfigMap
+#### Pod-definition.yaml
 
-      Encoding secrets 
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+	name: myapp
+	labels:
+		tier: front-end
+spec:
+	containers:
+		- name: my-app
+			image: nginx
+			port: 8080
+		envFrom:
+			- configMapRef:
+					name: app-config
+		
+```
 
-      ```sh
-      echo -n 'mysql' | base64
-      echo -n 'root' | base64
-      ```
+#### Passing single key-value from configmap 
 
-      Decoding 
 
-      ```sh
-      echo -n '==89bdnf' | base64 --decode
-      echo -n 'cm34hj--' | base64 --decode
-      ```
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+	name: myapp
+	labels:
+		tier: front-end
+spec:
+	containers:
+		- name: my-app
+			image: nginx
+			port: 8080
+		env:
+			- name: APP_COLOR
+				valueFrom:
+					configMapKeyRef:
+						name: app-config
+						key: APP_COLOR
+```
 
-      
 
-      Commands
 
-      ```sh
-      kubectl get secrets
-      
-      ## Describe secrets will hide value 
-      kubectl describe secrets
-      
-      # To see secrets values
-      kubectl get secret app-secret -o yaml
-      ```
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+	name: myapp
+	labels:
+		tier: front-end
+spec:
+	containers:
+		- name: my-app
+			image: nginx
+			port: 8080
+		volumes:
+			- name: app-config-volume
+				configMap:
+					name: app-config
+```
 
-   
+## Secrets
 
-2. Injecting Secrets
+### Create Secrets
 
-   Pod-definition.yaml
-   ```yaml
-   apiVersion: v1
-   kind: Pod
-   metadata: 
-   	name: web-app
-   	labels:
-   		name: simple-web-app
-   spec:
-   	containers:
-   		- name: simple-web-app
-   		  image: nginx
-   		  ports:
-   		  	- containerPort: 8080
-   		  envFrom:
-   		  	- secretRef:
-   		  			name: app-secret
-   ```
+#### Imperative
 
-   
+```sh
+kubectl create secret generic \
+    <secret-name> --from-literal=<key>=<value>
+    
+kubectl create secret generic \
+    app-secret --from-literal=BD_HOST=mysql \
+               --from-literal=BD_PASS=admin 
 
-   Injecting Single secrets
+## Using file to stor secrets
+kubectl create secret genric \
+  <secret-name> --from-file=<path-to-file>
+```
 
-   ```yaml
-   apiVersion: v1
-   kind: Pod
-   metadata: 
-   	name: web-app
-   	labels:
-   		name: simple-web-app
-   spec:
-   	containers:
-   		- name: simple-web-app
-   		  image: nginx
-   		  ports:
-   		  	- containerPort: 8080
-   		  env:
-   		  	- name: DB_PASS
-   		  		valueFrom:
-   		  			secretKeyRef:
-   		  				name: app-secret
-   		  				key: DB_PASS
-   ```
+#### Declaritive
 
-   
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+	name: app-secret
+data:
+	DB_HOST: mysql
+	DB_PASSWORD: admin
+	DB_USER: root
 
-   Injecting Secret as Volume
+```
 
-   When we Inject a secret as volume in a Pod, each attribute will create a seprate file and stroe value in it.
 
-   ```yaml
-   apiVersion: v1
-   kind: Pod
-   metadata: 
-   	name: web-app
-   	labels:
-   		name: simple-web-app
-   spec:
-   	containers:
-   		- name: simple-web-app
-   		  image: nginx
-   		  ports:
-   		  	- containerPort: 8080
-   		  volume:
-   		  	- name: DB_PASS
-   		  		secret:
-   		  			secretName: app-secret
-   ```
 
-   
+#### Encoding secrets 
 
-   **Note:-**
+```sh
+echo -n 'mysql' | base64
+echo -n 'root' | base64
+```
 
-   1. Secrets are not encrypted, they are encoded. 
-   2. Secrets are not encrypted in ETCD.          
+#### Decoding 
 
-   
+```sh
+echo -n '==89bdnf' | base64 --decode
+echo -n 'cm34hj--' | base64 --decode
+```
+
+
+
+#### Commands
+
+```sh
+kubectl get secrets
+
+## Describe secrets will hide value 
+kubectl describe secrets
+
+# To see secrets values
+kubectl get secret app-secret -o yaml
+```
+
+### Injecting Secrets
+
+#### Pod-definition.yaml
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata: 
+	name: web-app
+	labels:
+		name: simple-web-app
+spec:
+	containers:
+		- name: simple-web-app
+		  image: nginx
+		  ports:
+		  	- containerPort: 8080
+		  envFrom:
+		  	- secretRef:
+		  			name: app-secret
+```
+
+
+
+#### Injecting Single secrets
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata: 
+	name: web-app
+	labels:
+		name: simple-web-app
+spec:
+	containers:
+		- name: simple-web-app
+		  image: nginx
+		  ports:
+		  	- containerPort: 8080
+		  env:
+		  	- name: DB_PASS
+		  		valueFrom:
+		  			secretKeyRef:
+		  				name: app-secret
+		  				key: DB_PASS
+```
+
+
+
+#### Injecting Secret as Volume
+
+When we Inject a secret as volume in a Pod, each attribute will create a seprate file and stroe value in it.
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata: 
+	name: web-app
+	labels:
+		name: simple-web-app
+spec:
+	containers:
+		- name: simple-web-app
+		  image: nginx
+		  ports:
+		  	- containerPort: 8080
+		  volume:
+		  	- name: DB_PASS
+		  		secret:
+		  			secretName: app-secret
+```
+
+
+
+**Note:-**
+
+1. Secrets are not encrypted, they are encoded. 
+2. Secrets are not encrypted in ETCD.          
+
+## Security Context
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+	name: web-pod
+spec:
+	securityContext:
+		runAsUser: 1000
+	containers:
+		- name: ubuntu
+		  image: ubuntu
+		  command: ["sleep", "3000"]
+		  securityContext:
+		  	runAsUser: 1000
+		  	capabilities:
+		  		add: ["MAC_ADMIN"]
+```
+
+# Service Account
+
+```yaml
+kubectl create serviceaccount dashboard-sa
+
+kubectl get serviceaccount
+
+kubectl describe serviceaccount dashboard-sa
+
+kubectl describe sercret dashboard-sa-token-kbbdm
+```
+
